@@ -6,9 +6,11 @@ import { useObservable } from '@vueuse/rxjs';
 import { from } from 'rxjs';
 import AddRecipeModal from './components/AddRecipeModal.vue';
 import RecipeDetail from './components/RecipeDetail.vue';
+import ShoppingList from './components/ShoppingList.vue';
 import type { Recipe } from './types/Recipe';
 
 const isAdding = ref(false);
+const showShoppingList = ref(false);
 const categories = ['Alle', 'Frühstück', 'Mittagessen', 'Abendessen', 'Snack'];
 const activeCategory = ref('Alle');
 const selectedRecipe = ref<Recipe | null>(null);
@@ -55,6 +57,28 @@ const handleModalClose = () => {
   isAdding.value = false;
   recipeToEdit.value = null;
 };
+
+const selectedIds = ref<number[]>([]);
+const isSelectionMode = ref(false);
+
+const toggleSelection = (id: number) => {
+  const index = selectedIds.value.indexOf(id);
+  if (index > -1) {
+    selectedIds.value.splice(index, 1);
+  } else {
+    selectedIds.value.push(id);
+  }
+  
+  if (selectedIds.value.length === 0) isSelectionMode.value = false;
+};
+
+const selectedRecipes = computed(() => {
+  return recipes.value?.filter(r => r.id && selectedIds.value.includes(r.id)) || [];
+});
+
+const aggregatedIngredients = computed(() => {
+  return selectedRecipes.value.flatMap(r => r.ingredients);
+});
 </script>
 
 <template>
@@ -82,25 +106,45 @@ const handleModalClose = () => {
 
     <main class="p-4 max-w-lg mx-auto space-y-4">
       
-      <div 
-        v-for="recipe in filteredRecipes" 
-        :key="recipe.id" 
-        @click="openRecipe(recipe)" 
-        class="cursor-pointer bg-white p-5 rounded-2xl shadow-sm border border-slate-100 active:scale-95 transition-transform"
-      >
-        <div class="flex justify-between items-start">
-          <div>
-            <span class="text-[10px] font-bold text-orange-500 uppercase tracking-widest px-2 py-0.5 bg-orange-50 rounded">
-              {{ recipe.category }}
-            </span>
-            <h2 class="mt-2 font-bold text-slate-800 text-lg leading-tight">{{ recipe.title }}</h2>
-          </div>
-          <div class="text-yellow-400 text-sm">
-            {{ '⭐'.repeat(recipe.rating) }}
-          </div>
+    <div 
+      v-for="recipe in filteredRecipes" 
+      :key="recipe.id"
+      @click="isSelectionMode ? toggleSelection(recipe.id!) : openRecipe(recipe)"
+      @contextmenu.prevent="isSelectionMode = true; toggleSelection(recipe.id!)" 
+      class="relative p-5 rounded-2xl border-2 transition-all cursor-pointer mb-4"
+      :class="[
+        selectedIds.includes(recipe.id!) 
+          ? 'border-orange-500 bg-orange-50 shadow-md' 
+          : 'border-transparent bg-white shadow-sm border-slate-100'
+      ]"
+    >
+      <div v-if="isSelectionMode || selectedIds.includes(recipe.id!)" 
+          class="absolute -top-2 -right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center z-10"
+          :class="selectedIds.includes(recipe.id!) ? 'bg-orange-500 border-white shadow-lg' : 'border-slate-300 bg-white'">
+        <span v-if="selectedIds.includes(recipe.id!)" class="text-white text-xs font-bold">✓</span>
+      </div>
+
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <span class="text-[10px] font-black text-orange-500 uppercase tracking-widest px-2 py-0.5 bg-orange-100 rounded-md">
+            {{ recipe.category }}
+          </span>
+          <h2 class="mt-2 font-bold text-slate-800 text-lg leading-tight">{{ recipe.title }}</h2>
+        </div>
+
+        <div class="flex text-yellow-400 text-xs ml-2 mt-1">
+          <span v-for="n in 5" :key="n">
+            {{ n <= recipe.rating ? '★' : '☆' }}
+          </span>
         </div>
       </div>
 
+      <div class="mt-3 flex items-center gap-3 text-slate-400 text-xs font-medium">
+        <span class="flex items-center gap-1">🛒 {{ recipe.ingredients.length }} Zutaten</span>
+        <span class="flex items-center gap-1">⏱️ {{ recipe.steps.length }} Schritte</span>
+      </div>
+    </div>
+      
       <div v-if="filteredRecipes.length === 0" class="text-center py-20 text-slate-400 italic">
         Noch keine Rezepte gefunden...
       </div>
@@ -122,6 +166,21 @@ const handleModalClose = () => {
       @close="closeRecipe" 
       @delete="deleteRecipe"
       @edit="startEdit" 
+    />
+
+    <div v-if="selectedIds.length > 0" 
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-6 z-40">
+      <span class="text-sm font-bold">{{ selectedIds.length }} gewählt</span>
+      <button @click="showShoppingList = true" class="bg-orange-500 px-4 py-1 rounded-full text-sm font-bold">
+        🛒 Liste zeigen
+      </button>
+      <button @click="selectedIds = []; isSelectionMode = false" class="text-slate-400 text-xs">Abbrechen</button>
+    </div>
+
+    <ShoppingList 
+      v-if="showShoppingList" 
+      :recipes="selectedRecipes" 
+      @close="showShoppingList = false" 
     />
   </div>
 </template>
