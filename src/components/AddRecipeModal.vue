@@ -7,25 +7,37 @@ const emit = defineEmits(['close']);
 
 const categories = ['Frühstück', 'Mittagessen', 'Abendessen', 'Snack', 'Dessert'];
 
-const newRecipe = ref<Recipe>({
-  title: '',
-  category: 'Mittagessen',
-  rating: 3,
-  description: '',
-  ingredients: [],
-  is_dirty: true,
-  createdAt: Date.now(),
-  steps: []
-});
+const props = defineProps<{
+  recipeToEdit?: Recipe | null
+}>();
+
+const newRecipe = ref<Recipe>(
+  props.recipeToEdit 
+    ? JSON.parse(JSON.stringify(props.recipeToEdit))
+    : {
+        title: '',
+        category: 'Mittagessen',
+        rating: 3,
+        description: '',
+        ingredients: [],
+        steps: [],
+        is_dirty: true,
+        createdAt: Date.now()
+      }
+);
 
 const saveRecipe = async () => {
   if (!newRecipe.value.title) return alert("Titel fehlt!");
 
-  const recipeToSave = JSON.parse(JSON.stringify(newRecipe.value));
-  recipeToSave.createdAt = Date.now();
-  recipeToSave.is_dirty = true;
+  const data = JSON.parse(JSON.stringify(newRecipe.value));
+  data.is_dirty = true;
 
-  await db.recipes.add(recipeToSave);
+  if (data.id) {
+    await db.recipes.update(data.id, data);
+  } else {
+    await db.recipes.add(data);
+  }
+
   emit('close');
 };
 

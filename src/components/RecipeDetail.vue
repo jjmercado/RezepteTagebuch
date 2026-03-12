@@ -5,7 +5,7 @@ const props = defineProps<{
   recipe: Recipe 
 }>();
 
-const emit = defineEmits(['close', 'delete']);
+const emit = defineEmits(['close', 'delete', 'edit']);
 
 const confirmDelete = () => {
   if (confirm(`Möchtest du "${props.recipe.title}" wirklich unwiderruflich löschen?`)) {
@@ -77,5 +77,10 @@ const confirmDelete = () => {
             Rezept löschen
         </button>
     </div>
+    <button 
+      @click="$emit('edit', recipe)" 
+      class="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white">
+      Edit ✏️
+    </button>
   </div>
 </template>

@@ -42,6 +42,19 @@ const deleteRecipe = async (id?: number) => {
   
   selectedRecipe.value = null; 
 };
+
+const recipeToEdit = ref<Recipe | null>(null);
+
+const startEdit = (recipe: Recipe) => {
+  selectedRecipe.value = null;
+  recipeToEdit.value = recipe;
+  isAdding.value = true;
+};
+
+const handleModalClose = () => {
+  isAdding.value = false;
+  recipeToEdit.value = null;
+};
 </script>
 
 <template>
@@ -97,19 +110,23 @@ const deleteRecipe = async (id?: number) => {
       +
     </button>
 
-    <AddRecipeModal v-if="isAdding" @close="isAdding = false" />
+    <AddRecipeModal 
+      v-if="isAdding" 
+      :recipeToEdit="recipeToEdit" 
+      @close="handleModalClose" 
+    />
 
     <RecipeDetail 
       v-if="selectedRecipe" 
       :recipe="selectedRecipe" 
       @close="closeRecipe" 
-      @delete="deleteRecipe" 
+      @delete="deleteRecipe"
+      @edit="startEdit" 
     />
   </div>
 </template>
 
 <style>
-/* Versteckt die Scrollbar für das Kategorien-Menü */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
