@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { db } from '../db';
+import { db, generateUUID } from '../db';
 import type { Recipe } from '../types/Recipe';
 
 const emit = defineEmits(['close']);
@@ -30,18 +30,14 @@ const saveRecipe = async () => {
   if (!newRecipe.value.title) return alert("Titel fehlt!");
 
   const data = JSON.parse(JSON.stringify(newRecipe.value));
-  
   data.is_dirty = true;
 
   if (data.id) {
     await db.recipes.update(data.id, data);
-    console.log("Rezept aktualisiert:", data.id);
   } else {
-    data.id = crypto.randomUUID();
+    data.id = generateUUID();
     data.createdAt = Date.now();
-    
     await db.recipes.add(data);
-    console.log("Neues Rezept gespeichert mit UUID:", data.id);
   }
 
   emit('close');

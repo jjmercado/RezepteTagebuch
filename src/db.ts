@@ -28,28 +28,39 @@ export async function saveNewRecipe(recipeData: Omit<Recipe, 'id'>) {
 
 export async function autoSyncOnStart() {
   try {
-    const dirtyRecipes = await db.recipes.where('is_dirty').equals(1).toArray();
+    const dirtyRecipes = await db.recipes.filter(r => r.is_dirty === true || r.is_dirty === 1).toArray();
+    
+    if (dirtyRecipes.length > 0) {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dirtyRecipes),
+      });
 
-    if (dirtyRecipes.length === 0) return;
+      if (response.ok) {
+        const deletedIds = dirtyRecipes.filter(r => r.is_deleted).map(r => r.id);
+        await db.recipes.bulkDelete(deletedIds);
+        
+        const remainingIds = dirtyRecipes.filter(r => !r.is_deleted).map(r => r.id);
+        await db.recipes.bulkUpdate(remainingIds.map(id => ({
+          key: id, changes: { is_dirty: false }
+        })));
+      }
+    }
 
-    const response = await fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dirtyRecipes),
-    });
-
-    if (response.ok) {
-      const updates = dirtyRecipes.map(recipe => ({
-        key: recipe.id, 
-        changes: { is_dirty: false }
-      }));
-
-      await db.recipes.bulkUpdate(updates);
-      
-      console.log("Sync erfolgreich!");
+    const getRes = await fetch('/api/recipes');
+    if (getRes.ok) {
+      const recipesFromPi = await getRes.json();
+      for (const recipe of recipesFromPi) {
+        const local = await db.recipes.get(recipe.id);
+        if (!local || !local.is_dirty) {
+          await db.recipes.put({ ...recipe, is_dirty: false });
+        }
+      }
+      console.log("Pull erfolgreich abgeschlossen.");
     }
   } catch (error) {
-    console.error("Sync fehlgeschlagen (Pi offline?)", error);
+    console.error("Sync-Fehler:", error);
   }
 }
 
@@ -78,4 +89,15 @@ export async function migrateToUUIDs() {
       console.log(`Migriert: ID ${oldId} -> ${newId}`);
     }
   }
+}
+
+export function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }

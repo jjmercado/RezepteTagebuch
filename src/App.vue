@@ -24,13 +24,11 @@ const recipes = useObservable(
 
 const filteredRecipes = computed(() => {
   const allRecipes = recipes.value || [];
+  const activeRecipes = allRecipes.filter(r => !r.is_deleted);
   
-  if (activeCategory.value === 'Alle') {
-    return allRecipes;
-  }
-  
-  return allRecipes.filter(r => r.category === activeCategory.value);
-})
+  if (activeCategory.value === 'Alle') return activeRecipes;
+  return activeRecipes.filter(r => r.category === activeCategory.value);
+});
 
 const openRecipe = (recipe: Recipe) => {
   selectedRecipe.value = recipe;
@@ -42,8 +40,15 @@ const closeRecipe = () => {
 
 const deleteRecipe = async (id?: string) => {
   if (!id) return;
-  await db.recipes.delete(id);
+  
+  await db.recipes.update(id, { 
+    is_dirty: true, 
+    is_deleted: true 
+  });
+  
   selectedRecipe.value = null; 
+  
+  autoSyncOnStart();
 };
 
 const recipeToEdit = ref<Recipe | null>(null);
@@ -59,7 +64,6 @@ const handleModalClose = () => {
   recipeToEdit.value = null;
 };
 
-// Ändere den Typ von 'number' auf 'string' (oder 'string | number', falls du mischst)
 const toggleSelection = (id: string) => {
   const index = selectedIds.value.indexOf(id);
   

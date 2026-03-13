@@ -1,6 +1,6 @@
 export interface Ingredient {
   name: string;
-  amount: number | string; // string ist gut für "1 Prise" oder "etwas"
+  amount: number | string;
   unit: string;
 }
 
@@ -10,8 +10,9 @@ export interface Recipe {
   category: string;
   rating: number;
   description: string;
-  ingredients: Ingredient[]; // <-- Hier war der Fehler: Jetzt ein Objekt-Array!
-  steps: string[];           // Falls wir später eine Schritt-für-Schritt-Anleitung bauen
+  ingredients: Ingredient[];
+  steps: string[];
   is_dirty: boolean | number;
+  is_deleted?: boolean | number;
   createdAt: number;
 }
