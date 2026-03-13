@@ -30,12 +30,18 @@ const saveRecipe = async () => {
   if (!newRecipe.value.title) return alert("Titel fehlt!");
 
   const data = JSON.parse(JSON.stringify(newRecipe.value));
+  
   data.is_dirty = true;
 
   if (data.id) {
     await db.recipes.update(data.id, data);
+    console.log("Rezept aktualisiert:", data.id);
   } else {
+    data.id = crypto.randomUUID();
+    data.createdAt = Date.now();
+    
     await db.recipes.add(data);
+    console.log("Neues Rezept gespeichert mit UUID:", data.id);
   }
 
   emit('close');

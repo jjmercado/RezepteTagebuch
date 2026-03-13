@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { db } from './db';
+import { db, autoSyncOnStart, migrateToUUIDs } from './db';
 import { liveQuery } from 'dexie';
 import { useObservable } from '@vueuse/rxjs';
 import { from } from 'rxjs';
@@ -8,12 +8,15 @@ import AddRecipeModal from './components/AddRecipeModal.vue';
 import RecipeDetail from './components/RecipeDetail.vue';
 import ShoppingList from './components/ShoppingList.vue';
 import type { Recipe } from './types/Recipe';
+import { onMounted } from 'vue';
 
 const isAdding = ref(false);
 const showShoppingList = ref(false);
 const categories = ['Alle', 'Frühstück', 'Mittagessen', 'Abendessen', 'Snack'];
 const activeCategory = ref('Alle');
 const selectedRecipe = ref<Recipe | null>(null);
+const selectedIds = ref<string[]>([]);
+const isSelectionMode = ref(false);
 
 const recipes = useObservable(
   from(liveQuery(() => db.recipes.toArray()))
@@ -37,11 +40,9 @@ const closeRecipe = () => {
   selectedRecipe.value = null;
 };
 
-const deleteRecipe = async (id?: number) => {
+const deleteRecipe = async (id?: string) => {
   if (!id) return;
-  
   await db.recipes.delete(id);
-  
   selectedRecipe.value = null; 
 };
 
@@ -58,26 +59,36 @@ const handleModalClose = () => {
   recipeToEdit.value = null;
 };
 
-const selectedIds = ref<number[]>([]);
-const isSelectionMode = ref(false);
-
-const toggleSelection = (id: number) => {
+// Ändere den Typ von 'number' auf 'string' (oder 'string | number', falls du mischst)
+const toggleSelection = (id: string) => {
   const index = selectedIds.value.indexOf(id);
+  
   if (index > -1) {
     selectedIds.value.splice(index, 1);
   } else {
     selectedIds.value.push(id);
   }
   
-  if (selectedIds.value.length === 0) isSelectionMode.value = false;
+  if (selectedIds.value.length === 0) {
+    isSelectionMode.value = false;
+  }
 };
 
 const selectedRecipes = computed(() => {
-  return recipes.value?.filter(r => r.id && selectedIds.value.includes(r.id)) || [];
+  if (!recipes.value) return [];
+  
+  return recipes.value.filter(r => 
+    r.id !== undefined && selectedIds.value.includes(String(r.id))
+  );
 });
 
 const aggregatedIngredients = computed(() => {
   return selectedRecipes.value.flatMap(r => r.ingredients);
+});
+
+onMounted(async () => {
+  await migrateToUUIDs();
+  await autoSyncOnStart();
 });
 </script>
 
@@ -109,19 +120,19 @@ const aggregatedIngredients = computed(() => {
     <div 
       v-for="recipe in filteredRecipes" 
       :key="recipe.id"
-      @click="isSelectionMode ? toggleSelection(recipe.id!) : openRecipe(recipe)"
-      @contextmenu.prevent="isSelectionMode = true; toggleSelection(recipe.id!)" 
+      @click="isSelectionMode ? toggleSelection(String(recipe.id)) : openRecipe(recipe)"
+      @contextmenu.prevent="isSelectionMode = true; toggleSelection(String(recipe.id))" 
       class="relative p-5 rounded-2xl border-2 transition-all cursor-pointer mb-4"
       :class="[
-        selectedIds.includes(recipe.id!) 
+        selectedIds.includes(String(recipe.id)) 
           ? 'border-orange-500 bg-orange-50 shadow-md' 
           : 'border-transparent bg-white shadow-sm border-slate-100'
       ]"
     >
-      <div v-if="isSelectionMode || selectedIds.includes(recipe.id!)" 
+      <div v-if="isSelectionMode || selectedIds.includes(String(recipe.id))" 
           class="absolute -top-2 -right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center z-10"
-          :class="selectedIds.includes(recipe.id!) ? 'bg-orange-500 border-white shadow-lg' : 'border-slate-300 bg-white'">
-        <span v-if="selectedIds.includes(recipe.id!)" class="text-white text-xs font-bold">✓</span>
+          :class="selectedIds.includes(String(recipe.id)) ? 'bg-orange-500 border-white shadow-lg' : 'border-slate-300 bg-white'">
+        <span v-if="selectedIds.includes(String(recipe.id))" class="text-white text-xs font-bold">✓</span>
       </div>
 
       <div class="flex justify-between items-start">

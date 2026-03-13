@@ -5,13 +5,13 @@ export interface Ingredient {
 }
 
 export interface Recipe {
-  id?: number;
+  id?: string;
   title: string;
   category: string;
   rating: number;
   description: string;
   ingredients: Ingredient[]; // <-- Hier war der Fehler: Jetzt ein Objekt-Array!
   steps: string[];           // Falls wir später eine Schritt-für-Schritt-Anleitung bauen
-  is_dirty: boolean;
+  is_dirty: boolean | number;
   createdAt: number;
 }
